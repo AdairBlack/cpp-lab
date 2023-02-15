@@ -9,7 +9,6 @@ private:
     std::string comp1;
     std::string comp2;
     std::string comp3;
-
     boost::asio::io_service &io;
     boost::asio::steady_timer scaningTimer;
 
@@ -23,7 +22,7 @@ public:
 
     ~Comp()
     {
-        scaningTimer.cancel();
+        // scaningTimer.cancel();
     }
 
     void showInfo()
@@ -33,12 +32,12 @@ public:
 
     void run()
     {
-        scaningTimer.expires_after(std::chrono::milliseconds(3000));
-        std::weak_ptr<Comp> weakRef = weak_from_this();
+        std::cout << "start run" << std::endl;
+        scaningTimer.expires_after(std::chrono::milliseconds(6000));
+
         scaningTimer.async_wait(
-            [this, weakRef](const boost::system::error_code ec)
+            [this](const boost::system::error_code ec)
             {
-                std::shared_ptr<Comp> self = weakRef.lock();
                 if (ec)
                 {
                     // operation_aborted is expected if timer is canceled before
@@ -50,24 +49,51 @@ public:
                     return;
                 }
                 std::cout << "comp running" << std::endl;
-                sleep(15);
-                if (self)
-                {
-                    self->showInfo();
-                }
+                showInfo();
+                sleep(10);
+                showInfo();
                 run();
             });
+        std::cout << "complete run" << std::endl;
+        // std::weak_ptr<Comp> weakRef = weak_from_this();
+        // scaningTimer.async_wait(
+        //     [this, weakRef](const boost::system::error_code ec)
+        //     {
+        //         std::shared_ptr<Comp> self = weakRef.lock();
+        //         if (ec)
+        //         {
+        //             // operation_aborted is expected if timer is canceled before
+        //             // completion.
+        //             if (ec != boost::asio::error::operation_aborted)
+        //             {
+        //                 std::cerr << " async_wait failed: " + ec.message() << "\n";
+        //             }
+        //             return;
+        //         }
+        //         std::cout << "comp running" << std::endl;
+        //         sleep(15);
+        //         if (self)
+        //         {
+        //             self->showInfo();
+        //         }
+        //         run();
+        //     });
     }
 };
 
 int main(int argc, char *argv[])
 {
+    std::cout << "test begin" << std::endl;
     boost::asio::io_service io;
-    boost::asio::deadline_timer testTimer(io);
-    std::vector<Comp> comps;
+    // boost::asio::deadline_timer testTimer(io);
+    boost::asio::steady_timer testTimer(io);
+    std::vector<std::shared_ptr<Comp>> comps;
     comps.emplace_back(std::make_shared<Comp>(io));
 
-    testTimer.expires_from_now(boost::posix_time::seconds(5));
+    Comp comp(io);
+
+    testTimer.expires_after(std::chrono::milliseconds(3000));
+    // testTimer.expires_from_now(boost::posix_time::seconds(7));
 
     testTimer.async_wait([&comps](const boost::system::error_code &ec)
                          {
@@ -75,10 +101,14 @@ int main(int argc, char *argv[])
 		                    {
 			                    return; // we're being canceled
 		                    }
-		                    std::cout << "Hello World!" << std::endl; 
-                            comps.clear(); });
+		                    std::cout << "before clear" << std::endl; 
+                            comps.clear(); 
+                            std::cout << "after clear" << std::endl; });
 
-    sleep(1);
+    std::cout << "before run" << std::endl;
+    comps[0]->run();
+    comp.run();
+    std::cout << "after run" << std::endl;
 
     io.run();
 
